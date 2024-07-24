@@ -103,19 +103,20 @@ impl Buffer {
     }
 }
 
-pub fn format<I: Integer>(value: I, bytes: *mut u8) -> usize {
+/// Write an integer into the given buffer and return the length of the written
+/// bytes.
+///
+/// # Safety
+/// The caller must ensure that the buffer is large enough to hold the formatted
+/// integer, which can be up to `I128_MAX_LEN` bytes.
+pub unsafe fn format<I: Integer>(value: I, bytes: *mut u8) -> usize {
     let new_bytes = value.write(unsafe {
         &mut *(bytes as *mut [u8; I128_MAX_LEN] as *mut <I as private::Sealed>::Buffer)
     });
 
     // Align the new_bytes to the start of the buffer
-    let len = new_bytes.len();
-    let start = (bytes as usize) + (I128_MAX_LEN - len);
-    unsafe {
-        ptr::copy(new_bytes.as_ptr(), start as *mut u8, len);
-    };
 
-    len
+    new_bytes.len()
 }
 
 /// An integer that can be written into an [`itoa::Buffer`][Buffer].

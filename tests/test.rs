@@ -46,4 +46,43 @@ mod tests {
         assert_eq!(buffer.format(i128::MIN), I128_MIN);
         assert_eq!(buffer.format(i128::MAX), I128_MAX);
     }
+
+    #[test]
+    fn test_raw_format() {
+        unsafe {
+            // Create a buffer:
+            let mut buffer = [0u8; itoa::raw::I128_MAX_LEN];
+            let value = u128::MAX;
+
+            // Format the value into the buffer:
+            let len = itoa::raw::format(value, buffer.as_mut_ptr());
+
+            // Convert the buffer to a string:
+            let s = std::str::from_utf8_unchecked(&buffer[..len]);
+
+            // Check the string:
+            assert_eq!(s, U128_MAX);
+        }
+    }
+
+    #[test]
+    fn test_raw_format_offset() {
+        unsafe {
+            const OFFSET: usize = 10;
+
+            // Create a buffer:
+            let mut buffer = [0u8; itoa::raw::I128_MAX_LEN + OFFSET];
+
+            let value = u128::MAX;
+
+            // Format the value into the buffer:
+            let len = itoa::raw::format(value, buffer.as_mut_ptr().add(OFFSET));
+
+            // Convert the buffer to a string:
+            let s = std::str::from_utf8_unchecked(&buffer[OFFSET..OFFSET + len]);
+
+            // Check the string:
+            assert_eq!(s, U128_MAX);
+        }
+    }
 }
