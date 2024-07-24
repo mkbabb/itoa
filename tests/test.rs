@@ -52,6 +52,7 @@ mod tests {
         unsafe {
             // Create a buffer:
             let mut buffer = [0u8; itoa::raw::I128_MAX_LEN];
+
             let value = u128::MAX;
 
             // Format the value into the buffer:

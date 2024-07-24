@@ -114,7 +114,8 @@ pub unsafe fn format<I: Integer>(value: I, bytes: *mut u8) -> usize {
         &mut *(bytes as *mut [u8; I128_MAX_LEN] as *mut <I as private::Sealed>::Buffer)
     });
 
-    // Align the new_bytes to the start of the buffer
+    // Align the new bytes to the start of the bytes buffer.
+    ptr::copy(new_bytes.as_ptr(), bytes, new_bytes.len());
 
     new_bytes.len()
 }
