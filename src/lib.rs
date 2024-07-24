@@ -320,10 +320,10 @@ macro_rules! impl_Integer128 {
 }
 
 const U128_MAX_LEN: usize = 39;
-const I128_MAX_LEN: usize = 40;
+pub const I128_MAX_LEN: usize = 40;
 
 impl_Integer128!(I128_MAX_LEN => i128, U128_MAX_LEN => u128);
 
 pub mod raw {
-    pub use crate::format;
+    pub use crate::{format, I128_MAX_LEN};
 }
