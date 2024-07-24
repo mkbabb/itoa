@@ -95,11 +95,24 @@ impl Buffer {
     /// representation within the buffer.
     #[cfg_attr(feature = "no-panic", no_panic)]
     pub fn format<I: Integer>(&mut self, i: I) -> &str {
-        i.write(unsafe {
+        let bytes = i.write(unsafe {
             &mut *(&mut self.bytes as *mut [MaybeUninit<u8>; I128_MAX_LEN]
                 as *mut <I as private::Sealed>::Buffer)
-        })
+        });
+        unsafe { str::from_utf8_unchecked(bytes) }
     }
+}
+
+pub fn format<'a, I: Integer>(value: I, bytes: *mut u8) -> &'a [u8] {
+    let new_bytes = value.write(unsafe {
+        &mut *(bytes as *mut [u8; I128_MAX_LEN] as *mut <I as private::Sealed>::Buffer)
+    });
+
+    // align the new_byes to the start of the buffer
+    let len = new_bytes.len();
+    let start = bytes as usize + I128_MAX_LEN - len;
+
+    unsafe { slice::from_raw_parts(start as *const u8, len) }
 }
 
 /// An integer that can be written into an [`itoa::Buffer`][Buffer].
@@ -111,7 +124,7 @@ pub trait Integer: private::Sealed {}
 mod private {
     pub trait Sealed: Copy {
         type Buffer: 'static;
-        fn write(self, buf: &mut Self::Buffer) -> &str;
+        fn write(self, buf: &mut Self::Buffer) -> &[u8];
     }
 }
 
@@ -134,7 +147,7 @@ macro_rules! impl_Integer {
             #[allow(unused_comparisons)]
             #[inline]
             #[cfg_attr(feature = "no-panic", no_panic)]
-            fn write(self, buf: &mut [MaybeUninit<u8>; $max_len]) -> &str {
+            fn write(self, buf: &mut [MaybeUninit<u8>; $max_len]) -> &[u8] {
                 let is_nonnegative = self >= 0;
                 let mut n = if is_nonnegative {
                     self as $conv_fn
@@ -198,8 +211,7 @@ macro_rules! impl_Integer {
                 }
 
                 let len = buf.len() - curr as usize;
-                let bytes = unsafe { slice::from_raw_parts(buf_ptr.offset(curr), len) };
-                unsafe { str::from_utf8_unchecked(bytes) }
+                unsafe { slice::from_raw_parts(buf_ptr.offset(curr), len) }
             }
         }
     )*};
@@ -244,7 +256,7 @@ macro_rules! impl_Integer128 {
             #[allow(unused_comparisons)]
             #[inline]
             #[cfg_attr(feature = "no-panic", no_panic)]
-            fn write(self, buf: &mut [MaybeUninit<u8>; $max_len]) -> &str {
+            fn write(self, buf: &mut [MaybeUninit<u8>; $max_len]) -> &[u8] {
                 let is_nonnegative = self >= 0;
                 let n = if is_nonnegative {
                     self as u128
@@ -297,9 +309,8 @@ macro_rules! impl_Integer128 {
                     }
                 }
 
-                let len = buf.len() - curr as usize;
-                let bytes = unsafe { slice::from_raw_parts(buf_ptr.offset(curr), len) };
-                unsafe { str::from_utf8_unchecked(bytes) }
+            let len = buf.len() - curr as usize;
+            unsafe { slice::from_raw_parts(buf_ptr.offset(curr), len) }
             }
         }
     )*};
@@ -309,3 +320,7 @@ const U128_MAX_LEN: usize = 39;
 const I128_MAX_LEN: usize = 40;
 
 impl_Integer128!(I128_MAX_LEN => i128, U128_MAX_LEN => u128);
+
+pub mod raw {
+    pub use crate::format;
+}
