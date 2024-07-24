@@ -110,9 +110,9 @@ pub fn format<I: Integer>(value: I, bytes: *mut u8) -> usize {
 
     // Align the new_bytes to the start of the buffer
     let len = new_bytes.len();
-    let start = bytes as usize + I128_MAX_LEN - len;
+    let start = (bytes as usize) + (I128_MAX_LEN - len);
     unsafe {
-        ptr::copy_nonoverlapping(new_bytes.as_ptr(), start as *mut u8, len);
+        ptr::copy(new_bytes.as_ptr(), start as *mut u8, len);
     };
 
     len
