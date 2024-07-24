@@ -103,16 +103,19 @@ impl Buffer {
     }
 }
 
-pub fn format<'a, I: Integer>(value: I, bytes: *mut u8) -> &'a [u8] {
+pub fn format<I: Integer>(value: I, bytes: *mut u8) -> usize {
     let new_bytes = value.write(unsafe {
         &mut *(bytes as *mut [u8; I128_MAX_LEN] as *mut <I as private::Sealed>::Buffer)
     });
 
-    // align the new_byes to the start of the buffer
+    // Align the new_bytes to the start of the buffer
     let len = new_bytes.len();
     let start = bytes as usize + I128_MAX_LEN - len;
+    unsafe {
+        ptr::copy_nonoverlapping(new_bytes.as_ptr(), start as *mut u8, len);
+    };
 
-    unsafe { slice::from_raw_parts(start as *const u8, len) }
+    len
 }
 
 /// An integer that can be written into an [`itoa::Buffer`][Buffer].
