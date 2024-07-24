@@ -18,9 +18,6 @@ no-panic = { version = "0.1", optional = true }
 [lib]
 doc-scrape-examples = false
 
-[dev-dependencies]
-rand = "0.8.5"
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 rustdoc-args = ["--generate-link-to-definition"]

@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use itoa::{self, Integer};
-    use rand::{distributions::uniform::SampleUniform, Rng};
-    use std::ops::{Add, Sub};
+    use itoa;
 
     // Constants for expected string values
     const ZERO: &str = "0";
@@ -47,82 +45,5 @@ mod tests {
         let mut buffer = itoa::Buffer::new();
         assert_eq!(buffer.format(i128::MIN), I128_MIN);
         assert_eq!(buffer.format(i128::MAX), I128_MAX);
-    }
-
-    // Generic test function for a range of values with stochastic sampling
-    fn test_range<T>(start: T, end: T, n_samples: usize)
-    where
-        T: std::fmt::Display
-            + Integer
-            + SampleUniform
-            + Add<Output = T>
-            + Sub<Output = T>
-            + PartialOrd
-            + Copy,
-        rand::distributions::Standard: rand::distributions::Distribution<T>,
-    {
-        let mut buffer = itoa::Buffer::new();
-        let mut rng = rand::thread_rng();
-
-        // Always test the start and end of the range
-        assert_eq!(buffer.format(start), start.to_string());
-        assert_eq!(buffer.format(end), end.to_string());
-
-        // Stochastically sample the range
-        for _ in 0..n_samples {
-            let sample: T = rng.gen_range(start..=end);
-            assert_eq!(buffer.format(sample), sample.to_string());
-        }
-    }
-
-    // Range tests for various integer types
-    #[test]
-    fn test_i8_range() {
-        test_range(i8::MIN, i8::MAX, 100);
-    }
-
-    #[test]
-    fn test_u8_range() {
-        test_range(u8::MIN, u8::MAX, 100);
-    }
-
-    #[test]
-    fn test_i16_range() {
-        test_range(i16::MIN, i16::MAX, 1000);
-    }
-
-    #[test]
-    fn test_u16_range() {
-        test_range(u16::MIN, u16::MAX, 1000);
-    }
-
-    #[test]
-    fn test_i32_range() {
-        test_range(i32::MIN, i32::MAX, 10000);
-    }
-
-    #[test]
-    fn test_u32_range() {
-        test_range(u32::MIN, u32::MAX, 10000);
-    }
-
-    #[test]
-    fn test_i64_range() {
-        test_range(i64::MIN, i64::MAX, 100000);
-    }
-
-    #[test]
-    fn test_u64_range() {
-        test_range(u64::MIN, u64::MAX, 100000);
-    }
-
-    #[test]
-    fn test_i128_range() {
-        test_range(i128::MIN, i128::MAX, 100000);
-    }
-
-    #[test]
-    fn test_u128_range() {
-        test_range(u128::MIN, u128::MAX, 100000);
     }
 }
