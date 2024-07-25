@@ -109,15 +109,24 @@ impl Buffer {
 /// # Safety
 /// The caller must ensure that the buffer is large enough to hold the formatted
 /// integer, which can be up to `I128_MAX_LEN` bytes.
+///
+/// # Example
+///
+/// ```
+/// let mut buffer = [0u8; itoa::raw::I128_MAX_LEN];
+/// let len = unsafe { itoa::raw::format(1234, buffer.as_mut_ptr()) };
+/// let s = unsafe { core::str::from_utf8_unchecked(&buffer[..len]) };
+/// assert_eq!(s, "1234");
+/// ```
+#[cfg_attr(feature = "no-panic", no_panic)]
+#[inline]
 pub unsafe fn format<I: Integer>(value: I, bytes: *mut u8) -> usize {
     let new_bytes = value.write(unsafe {
-        &mut *(bytes as *mut [u8; I128_MAX_LEN] as *mut <I as private::Sealed>::Buffer)
+        &mut *(bytes as *mut [MaybeUninit<u8>; I128_MAX_LEN] as *mut <I as private::Sealed>::Buffer)
     });
-
-    // Align the new bytes to the start of the bytes buffer.
-    ptr::copy(new_bytes.as_ptr(), bytes, new_bytes.len());
-
-    new_bytes.len()
+    let len = new_bytes.len();
+    ptr::copy(new_bytes.as_ptr(), bytes, len);
+    len
 }
 
 /// An integer that can be written into an [`itoa::Buffer`][Buffer].
@@ -154,35 +163,53 @@ macro_rules! impl_Integer {
             #[cfg_attr(feature = "no-panic", no_panic)]
             fn write(self, buf: &mut [MaybeUninit<u8>; $max_len]) -> &[u8] {
                 let is_nonnegative = self >= 0;
+
                 let mut n = if is_nonnegative {
                     self as $conv_fn
                 } else {
                     // Convert negative number to positive by summing 1 to its two's complement.
                     (!(self as $conv_fn)).wrapping_add(1)
                 };
+
+                // The buffer is guaranteed to be large enough to hold the formatted integer.
                 let mut curr = buf.len() as isize;
                 let buf_ptr = buf.as_mut_ptr() as *mut u8;
                 let lut_ptr = DEC_DIGITS_LUT.as_ptr();
 
-                // Need at least 16 bits for the 4-digits-at-a-time to work.
+                // Need at least 16 bits for the eager 4-digits-at-a-time case.
                 if mem::size_of::<$t>() >= 2 {
-                    // Eagerly decode 4 digits at a time.
                     while n >= 10000 {
                         let rem = (n % 10000) as isize;
+
                         n /= 10000;
 
                         let d1 = (rem / 100) << 1;
                         let d2 = (rem % 100) << 1;
+
                         curr -= 4;
+
                         unsafe {
                             ptr::copy_nonoverlapping(lut_ptr.offset(d1), buf_ptr.offset(curr), 2);
                             ptr::copy_nonoverlapping(lut_ptr.offset(d2), buf_ptr.offset(curr + 2), 2);
                         }
                     }
-                }
+                } else if mem::size_of::<$t>() == 1 {
+                    // Micro optimisation for u8 and i8
+                    while n >= 100 {
+                        let rem = (n % 100) as isize;
 
-                // If we reach here, numbers are <=9999 so at most 4 digits long.
-                let mut n = n as isize; // Possibly reduce 64-bit math.
+                        n /= 100;
+
+                        let d1 = rem << 1;
+
+                        curr -= 2;
+
+                        unsafe {
+                            ptr::copy_nonoverlapping(lut_ptr.offset(d1), buf_ptr.offset(curr), 2);
+                        }
+                    }
+                }
+                // If we reach here, numbers are <=9999, so at most 4 digits long.
 
                 // Decode 2 more digits, if >2 digits.
                 if n >= 100 {
@@ -190,7 +217,7 @@ macro_rules! impl_Integer {
                     n /= 100;
                     curr -= 2;
                     unsafe {
-                        ptr::copy_nonoverlapping(lut_ptr.offset(d1), buf_ptr.offset(curr), 2);
+                        ptr::copy_nonoverlapping(lut_ptr.offset(d1 as isize), buf_ptr.offset(curr), 2);
                     }
                 }
 
@@ -204,7 +231,7 @@ macro_rules! impl_Integer {
                     let d1 = n << 1;
                     curr -= 2;
                     unsafe {
-                        ptr::copy_nonoverlapping(lut_ptr.offset(d1), buf_ptr.offset(curr), 2);
+                        ptr::copy_nonoverlapping(lut_ptr.offset(d1 as isize), buf_ptr.offset(curr), 2);
                     }
                 }
 
